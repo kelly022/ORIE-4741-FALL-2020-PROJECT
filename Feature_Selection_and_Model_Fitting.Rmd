@@ -1,0 +1,327 @@
+---
+title: "Feature_Selection & Model Fitting"
+author: "Yihao Zhu"
+date: "12/11/2020"
+output: word_document
+---
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+library(caret)
+library(glmnet)
+library(leaps)
+library(tidyverse)
+
+rawdata = read.csv("C:\\Users\\kevin\\Desktop\\Cornell\\Fall 2020\\ORIE 4741 Dealing with Big Messy Data\\Project\\Data\\Camry_clean.csv")
+car_data = rawdata %>% select(-c(X, first_color, second_color))
+```
+
+
+```{r}
+set.seed(1)
+
+num_of_missing_target = sum(is.na(car_data$listed.price))
+missing_target_ratio = num_of_missing_target / nrow(car_data)
+missing_target_ratio
+
+num_of_missing_owner = sum(is.na(car_data$Past.Owners))
+missing_owner_ratio = num_of_missing_owner / nrow(car_data)
+missing_owner_ratio
+
+# Drop all rows with missing targets and missing owners
+car_data = car_data[!is.na(car_data$listed.price), ]
+car_data = car_data[!is.na(car_data$Past.Owners), ]
+
+# Drop Outliers (According to our price distribution boxplot, the outliers for all of our five car datasets should be listed prices > 40000)
+car_data = car_data[car_data$listed.price <= 40000, ]
+
+# Add an intercept
+car_data$intercept = rep(1, nrow(car_data))
+
+# # First, do an 80% and 20% training-test split
+# train_index = sample(nrow(car_data), floor(0.8*nrow(car_data)))
+# train = car_data[train_index, ]
+# test = car_data[-train_index, ]
+```
+
+
+```{r Best Subset Selection, eval=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------
+# ---------------------WARNING: DO NOT RUN THIS BLOCK IF THERE ARE MORE THAN 20 FEATURES INCLUDED!!!---------------------------
+# -----------------------------------------------------------------------------------------------------------------------------
+
+set.seed(1)
+
+# Best subset selection
+best_subset_model = regsubsets(listed.price~., data = train, nvmax=ncol(car_data))
+model_summary = summary(best_subset_model)
+
+# Take a look at the model_summary first
+model_summary
+
+# Plot the BIC, CP, and Adjusted R-squared on training set
+# BIC
+plot(model_summary$bic,xlab="Number of Variables",ylab="BIC",type='l')
+points(1:ncol(car_data),model_summary$bic[1:ncol(car_data)], col="red",cex=2,pch=20)
+# CP
+plot(model_summary$cp,xlab="Number of Variables",ylab="Cp",type='l')
+points(1:ncol(car_data),model_summary$cp[1:ncol(car_data)], col="red",cex=2,pch=20)
+# Adjusted R-squared
+plot(model_summary$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+points(1:ncol(car_data),model_summary$adjr2[1:ncol(car_data)], col="red",cex=2,pch=20)
+```
+
+
+```{r Forward Stepwise Selection, eval=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------
+# --------------------------------WARNING: Obsolete Code, Don't Run Before Modification!!!-------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------------
+
+set.seed(1)
+
+# Forward stepwise selection
+forward_stepwise_model = regsubsets(listed.price~., data = train, nvmax=ncol(car_data), method="forward")
+model_summary = summary(forward_stepwise_model)
+
+# Take a look at the model_summary first
+model_summary
+
+# Plot the BIC, CP, and Adjusted R-squared on training set
+# BIC
+plot(model_summary$bic,xlab="Number of Variables",ylab="BIC",type='l')
+points(1:ncol(car_data),model_summary$bic[1:ncol(car_data)], col="red",cex=2,pch=20)
+# CP
+plot(model_summary$cp,xlab="Number of Variables",ylab="Cp",type='l')
+points(1:ncol(car_data),model_summary$cp[1:ncol(car_data)], col="red",cex=2,pch=20)
+# Adjusted R-squared
+plot(model_summary$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+points(1:ncol(car_data),model_summary$adjr2[1:ncol(car_data)], col="red",cex=2,pch=20)
+```
+
+
+```{r Backward Stepwise Selection, eval=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------
+# --------------------------------WARNING: Obsolete Code, Don't Run Before Modification!!!-------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------------
+
+set.seed(1)
+
+# Backward stepwise selection
+backward_stepwise_model = regsubsets(listed.price~., data = train, nvmax=ncol(car_data), method="backward")
+model_summary = summary(backward_stepwise_model)
+
+# Take a look at the model_summary first
+model_summary
+
+# Plot the BIC, CP, and Adjusted R-squared on training set
+# BIC
+plot(model_summary$bic,xlab="Number of Variables",ylab="BIC",type='l')
+points(1:ncol(car_data),model_summary$bic[1:ncol(car_data)], col="red",cex=2,pch=20)
+# CP
+plot(model_summary$cp,xlab="Number of Variables",ylab="Cp",type='l')
+points(1:ncol(car_data),model_summary$cp[1:ncol(car_data)], col="red",cex=2,pch=20)
+# Adjusted R-squared
+plot(model_summary$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+points(1:ncol(car_data),model_summary$adjr2[1:ncol(car_data)], col="red",cex=2,pch=20)
+```
+
+
+```{r eval=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------
+# --------------------------------WARNING: Obsolete Code, Don't Run Before Modification!!!-------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------------
+
+# According to best subset selection, the elbow point occurs when we include the following 3 features into the model:
+# mileage, year, and XSE
+
+# To see how well the 3-feature model performs on test set, we will compare it to a full model
+# First, train and fit a full model
+lr_full_model = glm(listed.price~., data=train)
+lr_full_test_pred = predict(lr_full_model, test, type="response")
+
+# Compute full model's test RMSE and MAE
+lr_full_test_RMSE = sqrt(mean((test$listed.price - lr_full_test_pred)^2))
+lr_full_test_MAE = mean(abs(test$listed.price - lr_full_test_pred))
+
+c(lr_full_test_RMSE, lr_full_test_MAE)
+```
+
+
+```{r eval=FALSE}
+# -----------------------------------------------------------------------------------------------------------------------------
+# --------------------------------WARNING: Obsolete Code, Don't Run Before Modification!!!-------------------------------------
+# -----------------------------------------------------------------------------------------------------------------------------
+
+# Next, train and fit a 3-feature model (mileage, year, XSE)
+lr_subset_model = glm(listed.price~mileage+year+XSE, data=train)
+lr_subset_test_pred = predict(lr_subset_model, test, type="response")
+
+# Compute 3-feature model's test RMSE and MAE
+lr_subset_test_RMSE = sqrt(mean((test$listed.price - lr_subset_test_pred)^2))
+lr_subset_test_MAE = mean(abs(test$listed.price - lr_subset_test_pred))
+
+c(lr_subset_test_RMSE, lr_subset_test_MAE)
+
+# Compare the results to the full model
+abs(lr_subset_test_RMSE - lr_full_test_RMSE) / lr_full_test_RMSE
+abs(lr_subset_test_MAE - lr_full_test_MAE) / lr_full_test_MAE
+
+# We can see that compared to fitting a full model which has 10 features, a 3-feature model only increases the test RMSE by about 3.5% and test MAE by about 4.8%
+# Therefore, a 3-feature model with features mileage, year, and XSE is indeed a very good model.
+```
+
+
+```{r Feature Selection Using Lasso}
+set.seed(1)
+
+# Use Lasso for feature selection
+X = model.matrix(listed.price~., car_data)[,-1] # Generate a design matrix on the whole data set
+Y = car_data$listed.price # Generate the target
+
+# First, find the best lambda for Lasso
+cv_fit = cv.glmnet(X, Y, alpha=1)
+best_lambda = cv_fit$lambda.1se
+
+# Now, fit the lasso regression model using the best lambda just found
+lasso_model = glmnet(X, Y, alpha=1, lambda=best_lambda)
+lasso_coef = coef(lasso_model)[, 1]
+
+# Show all non-zero coefficients
+lasso_coef[lasso_coef != 0]
+
+# Extract the feature names with non-zero coefficients
+feature_names = names(lasso_coef[lasso_coef != 0])[-1]
+```
+
+
+```{r Full Model, warning=FLASE}
+set.seed(1)
+
+# First, Fit a full model using all features and then in the next block compare it to the model using only selected features
+# Full model
+
+# Produce a k-fold cross validation set (here k = 10)
+cv_folds = createFolds(Y, k = 10, list = TRUE, returnTrain = FALSE)
+
+# Create a dataframe to store cross validation results
+cv_full_result = data.frame(Training_Error = double(), Test_Error = double())
+
+for (i in 1:length(cv_folds)) {
+  train = car_data[-cv_folds[[i]], ]
+  test = car_data[cv_folds[[i]], ]
+  
+  lr_full_model = glm(listed.price~., data=train)
+  
+  lr_full_train_pred = predict(lr_full_model, train, type="response")
+  lr_full_test_pred = predict(lr_full_model, test, type="response")
+  
+  # Compute the mean absolute percentage error (MAPE)
+  lr_full_train_MAE = mean(abs((train$listed.price - lr_full_train_pred) / train$listed.price)) * 100
+  lr_full_test_MAE = mean(abs((test$listed.price - lr_full_test_pred) / test$listed.price)) * 100
+  
+  cv_full_result[i, 1] = lr_full_train_MAE
+  cv_full_result[i, 2] = lr_full_test_MAE
+}
+```
+
+
+
+```{r Model Fitting and CV Test on Selected Features}
+set.seed(1)
+
+# Use the features selected by lasso to fit a model with regularization terms
+
+# First, define a formula that includes the target and all features selected by lasso
+model_formula = as.formula(paste("listed.price~", paste(feature_names, collapse = "+")))
+
+# Generate a new design matrix with the selected features
+X = model.matrix(model_formula, car_data)[,-1]
+
+# Create dataframes to store cross validation results
+cv_zeroreg_result = data.frame(Training_Error = double(), Test_Error = double())
+cv_ridge_result = data.frame(Training_Error = double(), Test_Error = double())
+cv_lasso_result = data.frame(Training_Error = double(), Test_Error = double())
+
+# Find the best lambda value for ridge regression model
+cv_ridge_out = cv.glmnet(X, Y, alpha=0)
+best_ridge_lambda = cv_ridge_out$lambda.min
+
+# Find the best lambda value for lasso regression model
+cv_lasso_out = cv.glmnet(X, Y, alpha=1)
+best_lasso_lambda = cv_lasso_out$lambda.min
+
+# Perform k-fold CV Using a Linear Regression Model with no regularization term
+for (i in 1:length(cv_folds)) {
+  train = car_data[-cv_folds[[i]], ]
+  test = car_data[cv_folds[[i]], ]
+  
+  lr_zeroreg_model = glm(model_formula, data=train)
+  
+  lr_zeroreg_train_pred = predict(lr_zeroreg_model, train, type="response")
+  lr_zeroreg_test_pred = predict(lr_zeroreg_model, test, type="response")
+  
+  # Compute the mean absolute percentage error (MAPE)
+  lr_zeroreg_train_MAE = mean(abs((train$listed.price - lr_zeroreg_train_pred) / train$listed.price)) * 100
+  lr_zeroreg_test_MAE = mean(abs((test$listed.price - lr_zeroreg_test_pred) / test$listed.price)) * 100
+  
+  cv_zeroreg_result[i, 1] = lr_zeroreg_train_MAE
+  cv_zeroreg_result[i, 2] = lr_zeroreg_test_MAE
+}
+
+# Perform k-fold CV Using a Ridge Regression Model 
+for (i in 1:length(cv_folds)) {
+  X_train = X[-cv_folds[[i]], ]
+  Y_train = Y[-cv_folds[[i]]]
+  X_test = X[cv_folds[[i]], ]
+  Y_test = Y[cv_folds[[i]]]
+  
+  lr_ridge_model = glmnet(X_train, Y_train, alpha=0, lambda=best_ridge_lambda)
+  
+  lr_ridge_train_pred = predict(lr_ridge_model, X_train, type="response")
+  lr_ridge_test_pred = predict(lr_ridge_model, X_test, type="response")
+  
+  # Compute the mean absolute percentage error (MAPE)
+  lr_ridge_train_MAE = mean(abs((Y_train - lr_ridge_train_pred) / Y_train)) * 100
+  lr_ridge_test_MAE = mean(abs((Y_test - lr_ridge_test_pred) / Y_test)) * 100
+  
+  cv_ridge_result[i, 1] = lr_ridge_train_MAE
+  cv_ridge_result[i, 2] = lr_ridge_test_MAE
+}
+
+# Perform k-fold CV Using a Lasso Regression Model
+for (i in 1:length(cv_folds)) {
+  X_train = X[-cv_folds[[i]], ]
+  Y_train = Y[-cv_folds[[i]]]
+  X_test = X[cv_folds[[i]], ]
+  Y_test = Y[cv_folds[[i]]]
+  
+  lr_lasso_model = glmnet(X_train, Y_train, alpha=1, lambda=best_lasso_lambda)
+  
+  lr_lasso_train_pred = predict(lr_lasso_model, X_train, type="response")
+  lr_lasso_test_pred = predict(lr_lasso_model, X_test, type="response")
+  
+  # Compute the mean absolute percentage error (MAPE)
+  lr_lasso_train_MAE = mean(abs((Y_train - lr_lasso_train_pred) / Y_train)) * 100
+  lr_lasso_test_MAE = mean(abs((Y_test - lr_lasso_test_pred) / Y_test)) * 100
+  
+  cv_lasso_result[i, 1] = lr_lasso_train_MAE
+  cv_lasso_result[i, 2] = lr_lasso_test_MAE
+}
+```
+
+
+```{r Results Comparsion}
+# Cross validation results of full model compared to models with selected features with and without regularization
+cv_full_result
+cv_zeroreg_result
+cv_ridge_result
+cv_lasso_result
+
+# Compare the average training and test set MAPE of all models from cross validation
+avg_error_comparison = data.frame(full_zeroreg_model=c(mean(cv_full_result$Training_Error), mean(cv_full_result$Test_Error)),
+                                  zeroreg_model_with_selected_features=c(mean(cv_zeroreg_result$Training_Error), mean(cv_zeroreg_result$Test_Error)),
+                                  ridge_model_with_selected_features=c(mean(cv_ridge_result$Training_Error), mean(cv_ridge_result$Test_Error)),
+                                  lasso_model_with_selected_features=c(mean(cv_lasso_result$Training_Error), mean(cv_lasso_result$Test_Error)))
+
+avg_error_comparison #First row is training MAPE, the second row is test MAPE
+```
+
